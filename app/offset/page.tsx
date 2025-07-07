@@ -1,187 +1,253 @@
-'use client';
+'use client'
 
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react'
 
 export default function OffsetCalculator() {
-  const [footprint, setFootprint] = useState(0);
-  const [offsetMethod, setOffsetMethod] = useState('trees');
-  const [results, setResults] = useState<{
-    tons: number;
-    cost: number;
-    quantity: number | string;
-    method: any;
-  } | null>(null);
+  const [userKWh, setUserKWh] = useState<string>('')
+  const [solarKWh, setSolarKWh] = useState<string>('')
+  const [dirtyCountry, setDirtyCountry] = useState<string>('')
+  const [cleanCountry, setCleanCountry] = useState<string>('')
+  const [countries, setCountries] = useState<Array<{ name: string; iso_code: string }>>([])
+  const [result, setResult] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
 
-  const offsetOptions = {
-    trees: {
-      name: 'Tree Planting',
-      costPerTon: 25, // USD per ton CO2
-      description: 'Plant trees that will absorb CO2 over their lifetime',
-      unit: 'trees',
-      conversion: 22, // kg CO2 per tree per year
-      icon: '🌳'
-    },
-    renewable: {
-      name: 'Renewable Energy',
-      costPerTon: 15,
-      description: 'Support renewable energy projects',
-      unit: 'kWh',
-      conversion: 0.5, // kg CO2 per kWh
-      icon: '⚡'
-    },
-    conservation: {
-      name: 'Forest Conservation',
-      costPerTon: 12,
-      description: 'Protect existing forests from deforestation',
-      unit: 'hectares',
-      conversion: 200, // tons CO2 per hectare per year
-      icon: '🏞️'
-    },
-    methane: {
-      name: 'Methane Capture',
-      costPerTon: 20,
-      description: 'Capture methane from landfills and farms',
-      unit: 'projects',
-      conversion: 1000, // kg CO2 equivalent per project
-      icon: '🔧'
-    }
-  };
+  useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        const res = await fetch('/api/offset-countries')
+        const data = await res.json()
+        setCountries(data)
 
-  const calculateOffset = () => {
-    const tons = footprint / 1000;
-    const option = offsetOptions[offsetMethod];
-    const cost = tons * option.costPerTon;
-    
-    let quantity;
-    if (offsetMethod === 'trees') {
-      quantity = Math.ceil((footprint / option.conversion));
-    } else if (offsetMethod === 'renewable') {
-      quantity = Math.ceil(footprint / option.conversion);
-    } else if (offsetMethod === 'conservation') {
-      quantity = (footprint / 1000 / option.conversion).toFixed(3);
-    } else {
-      quantity = Math.ceil(footprint / option.conversion);
+        if (data.length > 1) {
+          setDirtyCountry(data[0].iso_code)
+          setCleanCountry(data[1].iso_code)
+        }
+      } catch (err) {
+        console.error('Failed to fetch countries', err)
+      }
     }
 
-    setResults({
-      tons,
-      cost,
-      quantity,
-      method: option
-    });
-  };
+    fetchCountries()
+  }, [])
+
+  const handleCalculate = async () => {
+    setLoading(true)
+    setResult(null)
+
+    try {
+      const response = await fetch('/api/offset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userKWh: Number(userKWh) || 0,
+          solarKWh: Number(solarKWh) || 0,
+          dirtyCountryCode: dirtyCountry,
+          cleanCountryCode: cleanCountry,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.offsetCO2 != null) {
+        setResult(data)
+      } else {
+        console.error('❌ Missing or invalid fields in API response:', data)
+        setResult(null)
+      }
+    } catch (error) {
+      console.error('❌ Error during fetch:', error)
+      setResult(null)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold text-center mb-8">Carbon Offset Calculator</h1>
-      
-      <div className="bg-white p-6 rounded-lg shadow-lg mb-8">
-        <h2 className="text-xl font-semibold mb-4">Enter Your Carbon Footprint</h2>
-        <div className="flex gap-4 items-end">
-          <div className="flex-1">
-            <label className="block text-sm font-medium mb-1">
-              Annual Carbon Footprint (kg CO₂)
+    <div className="w-full bg-gradient-to-br from-slate-50 to-blue-50 px-4 py-8 flex justify-center min-h-screen">
+      <div 
+        className="w-full max-w-[480px] mx-auto bg-white rounded-3xl p-6 shadow-2xl"
+        style={{
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.8)'
+        }}
+      >
+        
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-semibold text-gray-900 mb-2 leading-tight">
+            CO<sub className="text-lg">₂</sub> Offset Calculator
+          </h1>
+          <p className="text-sm text-gray-600 font-medium">
+            See how much CO₂ you can offset by using clean solar energy instead of dirty electricity — instantly. Just enter your usage, choose your countries, and discover your real impact in kilograms, flights, or trees.
+          </p>
+        </div>
+
+        {/* Input Card */}
+        <div className="bg-gray-50 rounded-2xl p-5 mb-6 space-y-4">
+          {/* Annual Usage */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Annual electricity usage (kWh)
             </label>
             <input
               type="number"
-              value={footprint}
-              onChange={(e) => setFootprint(Number(e.target.value))}
-              className="w-full p-3 border rounded-md text-lg"
-              placeholder="Enter your carbon footprint"
+              value={userKWh}
+              onChange={(e) => setUserKWh(e.target.value)}
+              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-base font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              placeholder="8,000"
             />
           </div>
+
+          {/* Solar Production */}
           <div>
-            <a
-              href="/calculator"
-              className="bg-blue-600 text-white px-4 py-3 rounded-md hover:bg-blue-700"
-            >
-              Calculate Footprint
-            </a>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Solar electricity production (kWh)
+            </label>
+            <input
+              type="number"
+              value={solarKWh}
+              onChange={(e) => setSolarKWh(e.target.value)}
+              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-base font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              placeholder="5,000"
+            />
+          </div>
+
+          {/* Country Selects */}
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Your country
+              </label>
+              <select
+                value={dirtyCountry}
+                onChange={(e) => setDirtyCountry(e.target.value)}
+                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-base font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
+                  backgroundPosition: 'right 0.75rem center',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundSize: '1.25em 1.25em'
+                }}
+              >
+                <option value="">Select your country</option>
+                {countries.map((country) => (
+                  <option key={country.iso_code} value={country.iso_code}>
+                    {country.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Solar farm country
+              </label>
+              <select
+                value={cleanCountry}
+                onChange={(e) => setCleanCountry(e.target.value)}
+                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-base font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
+                  backgroundPosition: 'right 0.75rem center',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundSize: '1.25em 1.25em'
+                }}
+              >
+                <option value="">Select clean energy country</option>
+                {countries.map((country) => (
+                  <option key={country.iso_code} value={country.iso_code}>
+                    {country.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="bg-white p-6 rounded-lg shadow-lg mb-8">
-        <h2 className="text-xl font-semibold mb-4">Choose Offset Method</h2>
-        <div className="grid md:grid-cols-2 gap-4">
-          {Object.entries(offsetOptions).map(([key, option]) => (
-            <div
-              key={key}
-              className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                offsetMethod === key
-                  ? 'border-green-500 bg-green-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-              onClick={() => setOffsetMethod(key)}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{option.icon}</span>
-                <div>
-                  <h3 className="font-semibold">{option.name}</h3>
-                  <p className="text-sm text-gray-600">${option.costPerTon}/ton CO₂</p>
+        {/* Calculate Button */}
+        <button
+          onClick={handleCalculate}
+          disabled={loading || !userKWh || !solarKWh || !dirtyCountry || !cleanCountry}
+          className="w-full font-semibold uppercase py-4 rounded-2xl text-white text-sm tracking-wide transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed mb-6 transform hover:scale-[1.02] active:scale-[0.98]"
+          style={{
+            background: loading || !userKWh || !solarKWh || !dirtyCountry || !cleanCountry 
+              ? '#9CA3AF' 
+              : 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+            boxShadow: loading || !userKWh || !solarKWh || !dirtyCountry || !cleanCountry 
+              ? 'none' 
+              : '0 10px 25px -5px rgba(59, 130, 246, 0.4)'
+          }}
+        >
+          {loading ? 'Calculating...' : 'Calculate Offset'}
+        </button>
+
+        {/* Results Card */}
+        {result && (
+          <div 
+            className="bg-white border border-gray-100 rounded-2xl p-6 mb-6 text-center animate-fade-in"
+            style={{
+              boxShadow: '0 8px 25px -8px rgba(0, 0, 0, 0.1)',
+              animation: 'fadeIn 0.5s ease-out'
+            }}
+          >
+            {/* Main Impact Number */}
+            <div className="mb-4">
+              <div className="text-3xl font-bold text-gray-900 mb-1">
+                {result.offsetCO2.toFixed(0)} kg
+              </div>
+              <div className="text-lg text-gray-600">
+                CO₂ offset this year
+              </div>
+            </div>
+
+            {/* Impact Context */}
+            <div className="text-sm text-gray-500 mb-4">
+              ≈ {(result.offsetCO2 / 1500).toFixed(1)} flights worth of emissions saved
+            </div>
+
+            {/* Optional Advanced Breakdown */}
+            <details className="text-left">
+              <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-700 transition-colors font-medium text-center mb-3">
+                View breakdown
+              </summary>
+              
+              <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Your country factor:</span>
+                  <span className="font-medium">{result.dirtyFactor.toFixed(4)} kg/kWh</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Clean energy factor:</span>
+                  <span className="font-medium">{result.cleanFactor.toFixed(4)} kg/kWh</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Usage:</span>
+                  <span className="font-medium">{result.userKWh.toLocaleString()} kWh</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Solar production:</span>
+                  <span className="font-medium">{result.solarKWh.toLocaleString()} kWh</span>
                 </div>
               </div>
-              <p className="text-sm text-gray-600 mt-2">{option.description}</p>
-            </div>
-          ))}
+            </details>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="pt-4 border-t border-gray-100">
+          <p className="text-center text-xs text-gray-400">
+            Powered by <span className="font-medium">SolarWise</span> • Data from{' '}
+            <a 
+              href="https://ourworldindata.org" 
+              className="hover:text-gray-500 underline transition-colors" 
+              target="_blank"
+            >
+              Our World in Data
+            </a>
+          </p>
         </div>
       </div>
-
-      <div className="text-center mb-8">
-        <button
-          onClick={calculateOffset}
-          disabled={!footprint}
-          className="bg-green-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-green-700 disabled:bg-gray-400"
-        >
-          Calculate Offset Cost
-        </button>
-      </div>
-
-      {results && (
-        <div className="bg-white p-6 rounded-lg shadow-lg">
-          <h3 className="text-2xl font-bold text-center mb-4">Offset Results</h3>
-          
-          <div className="grid md:grid-cols-3 gap-6 text-center">
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <h4 className="font-semibold text-gray-600">Carbon Footprint</h4>
-              <p className="text-2xl font-bold text-blue-600">
-                {results.tons.toFixed(2)} tons CO₂
-              </p>
-            </div>
-            
-            <div className="p-4 bg-green-50 rounded-lg">
-              <h4 className="font-semibold text-gray-600">Offset Cost</h4>
-              <p className="text-2xl font-bold text-green-600">
-                ${results.cost.toFixed(2)}
-              </p>
-            </div>
-            
-            <div className="p-4 bg-orange-50 rounded-lg">
-              <h4 className="font-semibold text-gray-600">
-                {results.method.name}
-              </h4>
-              <p className="text-2xl font-bold text-orange-600">
-                {results.quantity} {results.method.unit}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <h4 className="font-semibold mb-2">What This Means:</h4>
-            <p className="text-gray-700">
-              To offset your annual carbon footprint of {results.tons.toFixed(2)} tons CO₂, 
-              you would need to invest ${results.cost.toFixed(2)} in {results.method.name.toLowerCase()}. 
-              This would be equivalent to {results.quantity} {results.method.unit}.
-            </p>
-          </div>
-
-          <div className="mt-6 text-center">
-            <button className="bg-green-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-green-700">
-              Purchase Carbon Offsets
-            </button>
-          </div>
-        </div>
-      )}
     </div>
-  );
+  )
 }
