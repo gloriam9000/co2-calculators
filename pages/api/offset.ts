@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 // Import using require to handle large JSON files better
-const owidData = require('../../data/owid-co2-data.json')
+const owidData = require('../../data/trimmed-co2-data.json')
 
 type Entry = {
   year: number

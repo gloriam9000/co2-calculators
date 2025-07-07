@@ -1,4 +1,4 @@
-import co2Data from '../data/owid-co2-data.json'
+import co2Data from '../data/trimmed-co2-data.json'
 
 // ✅ 1. Convert per-capita emissions to estimated kg CO2 per kWh (optional)
 export function getLatestCo2Intensity(countryCode: string): number | null {
@@ -6,12 +6,12 @@ export function getLatestCo2Intensity(countryCode: string): number | null {
     (country: any) => country.iso_code === countryCode
   )
 
-  if (!entry || !Array.isArray(entry.data)) return null
+  if (!entry || !Array.isArray((entry as any).data)) return null
 
-  const data2023 = entry.data.find((yearData: any) => yearData.year === 2023)
+  const data2023 = (entry as any).data.find((yearData: any) => yearData.year === 2023)
 
-  if (data2023 && typeof data2023.co2_per_capita === 'number') {
-    return (data2023.co2_per_capita * 1000) / 3000 // tons -> kg, divide by avg. kWh
+  if (data2023 && typeof (data2023 as any).co2_per_capita === 'number') {
+    return ((data2023 as any).co2_per_capita * 1000) / 3000 // tons -> kg, divide by avg. kWh
   }
 
   return null
@@ -23,12 +23,12 @@ export function getElectricityEmissionFactor(countryCode: string): number | null
     (country: any) => country.iso_code === countryCode
   )
 
-  if (!entry || !Array.isArray(entry.data)) return null
+  if (!entry || !Array.isArray((entry as any).data)) return null
 
-  const data2023 = entry.data.find((yearData: any) => yearData.year === 2023)
+  const data2023 = (entry as any).data.find((yearData: any) => yearData.year === 2023)
 
-  if (data2023 && typeof data2023.electricity_emissions_factor === 'number') {
-    return data2023.electricity_emissions_factor
+  if (data2023 && typeof (data2023 as any).electricity_emissions_factor === 'number') {
+    return (data2023 as any).electricity_emissions_factor
   }
 
   return null
@@ -39,8 +39,8 @@ export function getAvailableCountries(): Array<{ name: string; iso_code: string 
   const countries: Array<{ name: string; iso_code: string }> = []
 
   Object.entries(co2Data).forEach(([name, data]: [string, any]) => {
-    if (data.iso_code && Array.isArray(data.data)) {
-      const hasValidData = data.data.some(
+    if ((data as any).iso_code && Array.isArray((data as any).data)) {
+      const hasValidData = (data as any).data.some(
         (yearData: any) =>
           yearData.year === 2023 &&
           typeof yearData.electricity_emissions_factor === 'number'

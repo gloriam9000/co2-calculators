@@ -1,18 +1,18 @@
 // lib/getLatestFactors.ts
-import owidData from '../data/owid-co2-data.json'
+import owidData from '../data/trimmed-co2-data.json'
 
 export function getLatestFactors(): Record<string, number> {
   const factors: Record<string, number> = {}
 
   for (const country of Object.values(owidData)) {
-    if (!country || !country.iso_code || !Array.isArray(country.data)) continue
+    if (!country || !(country as any).iso_code || !Array.isArray((country as any).data)) continue
 
-    const latest = [...country.data]
+    const latest = [...(country as any).data]
       .reverse()
-      .find(entry => entry.co2_intensity_kg_per_kwh != null)
+      .find((entry: any) => entry.co2_per_unit_energy != null)
 
     if (latest) {
-      factors[country.iso_code] = latest.co2_intensity_kg_per_kwh
+      factors[(country as any).iso_code] = latest.co2_per_unit_energy
     }
   }
 
