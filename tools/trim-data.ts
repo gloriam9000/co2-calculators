@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 
 // Load the full dataset (adjust the path if needed)
-import rawData from '../data/owid-co2-data.json'
+import rawData from '../data/trimmed-co2-data.json'
 
 const trimmedData: Record<string, any> = {}
 
